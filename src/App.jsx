@@ -5,7 +5,7 @@ import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged }
 import { getFirestore, doc, setDoc, collection, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 
 // Global variables provided by the Canvas environment (these might be passed as props in a real app)
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+// const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; reggie
 
 
 const firebaseConfig = {
@@ -20,7 +20,7 @@ const firebaseConfig = {
 
 
 
-const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+// const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; reggie
 
 // Initialize Firebase App and Services
 let firebaseApp;
