@@ -20,7 +20,7 @@ const firebaseConfig = {
 
 
 
-const initialAuthToken = typeof _initial_auth_token !== 'undefined' ? _initial_auth_token : null; reggie
+const initialAuthToken = typeof _initial_auth_token !== 'undefined' ? _initial_auth_token : null; 
 
 // Initialize Firebase App and Services
 let firebaseApp;
