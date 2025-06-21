@@ -1,19 +1,13 @@
+// src/ChatbotApp.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, collection, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 
-// IMPORTANT: In a real Pi app, you'd typically initialize Pi SDK here for user authentication and payments.
-// Example (conceptual):
-// import Pi from 'pi-sdk'; // Assuming a Pi SDK library is available and imported
-// const piSdk = new Pi();
-// piSdk.init({ version: '1.0', appName: 'MyPiAIAgent', scopes: ['payments', 'username'] });
+// Global variables provided by the Canvas environment (these might be passed as props in a real app)
 
-// Global variables provided by the Canvas environment (these would be your actual Firebase config in a real deployment)
-//const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+const appId = process.env.REACT_APP_FIREBASE_APP_ID;
 
-
-const appId = process.env.REACT_APP_APP_ID;
 
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
@@ -26,9 +20,11 @@ const firebaseConfig = {
 };
 
 
+
 //const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
 const initialAuthToken = process.env.REACT_APP_INITIAL_AUTH_TOKEN;
+
 
 // Initialize Firebase App and Services
 let firebaseApp;
@@ -47,9 +43,8 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [userId, setUserId] = useState(null); // This would ideally come from Pi SDK for Pi identity
+  const [userId, setUserId] = useState(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [piUser, setPiUser] = useState(null); // State for Pi Network user data
   const messagesEndRef = useRef(null);
 
   // Scroll to the latest message
@@ -58,20 +53,18 @@ function App() {
   };
 
   useEffect(() => {
-    // --- Firebase Authentication Setup ---
-    // This handles anonymous sign-in for chat history persistence.
-    // In a full Pi app, you might use Pi SDK for primary user identification,
-    // and then link that to a Firebase user if needed for other backend services.
+    // Firebase Authentication
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUserId(user.uid);
       } else {
+        // Sign in anonymously if no token is provided or user is not signed in
         if (!initialAuthToken) {
           try {
             await signInAnonymously(auth);
-            console.log("Signed in anonymously to Firebase.");
+            console.log("Signed in anonymously");
           } catch (error) {
-            console.error("Anonymous Firebase sign-in failed:", error);
+            console.error("Anonymous sign-in failed:", error);
           }
         }
       }
@@ -79,54 +72,26 @@ function App() {
     });
 
     if (initialAuthToken) {
+      // Use custom token if provided
       signInWithCustomToken(auth, initialAuthToken)
         .then((userCredential) => {
-          console.log("Signed in with custom Firebase token:", userCredential.user.uid);
+          console.log("Signed in with custom token:", userCredential.user.uid);
         })
         .catch((error) => {
-          console.error("Custom Firebase token sign-in failed:", error);
+          console.error("Custom token sign-in failed:", error);
+          // Fallback to anonymous sign-in if custom token fails
           signInAnonymously(auth)
-            .then(() => console.log("Signed in anonymously to Firebase after token failure."))
-            .catch((anonError) => console.error("Anonymous Firebase sign-in fallback failed:", anonError));
+            .then(() => console.log("Signed in anonymously after custom token failure"))
+            .catch((anonError) => console.error("Anonymous sign-in fallback failed:", anonError));
         });
     }
 
-    // --- Pi SDK Initialization (Conceptual for a Pi App) ---
-    // This part is illustrative. Actual Pi SDK integration would involve:
-    // 1. Initializing the SDK.
-    // 2. Requesting user authentication.
-    // 3. Handling success/failure callbacks to get the Pi user's data (e.g., username, ID).
-    // 4. Using the Pi user ID for app-specific logic and potentially linking to your Firebase userId.
-
-    // Example of a conceptual Pi SDK authentication call:
-    /*
-    if (typeof piSdk !== 'undefined') {
-      piSdk.authenticate((auth) => {
-        if (auth.user) {
-          setPiUser(auth.user);
-          // You might use auth.user.uid or auth.user.username as your primary userId for Pi-specific data
-          // setUserId(auth.user.uid); // Or derive a unique ID from Pi user data
-          console.log("Authenticated with Pi Network:", auth.user.username);
-        } else if (auth.error) {
-          console.error("Pi SDK authentication error:", auth.error.message);
-        }
-      });
-    } else {
-        console.warn("Pi SDK not available in this environment. Running as a standalone web app.");
-    }
-    */
-
-    return () => {
-      unsubscribeAuth();
-      // Optionally, piSdk.deauthenticate() or similar if your app manages sessions.
-    };
+    return () => unsubscribeAuth();
   }, []);
 
   useEffect(() => {
-    if (!isAuthReady || !db || !userId) return; // Wait for Firebase auth and userId
+    if (!isAuthReady || !db || !userId) return;
 
-    // In a real Pi app, you might use piUser.uid or a derived ID instead of Firebase userId
-    // for collections directly tied to Pi Network identity.
     const chatCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/messages`);
     const q = query(chatCollectionRef, orderBy('timestamp', 'asc'));
 
@@ -150,33 +115,26 @@ function App() {
   }, [messages]);
 
   const sendMessage = async () => {
-    if (input.trim() === '' || isLoading || !userId) return; // Ensure userId is available
+    if (input.trim() === '' || isLoading || !userId) return;
 
     const userMessage = {
       text: input,
       sender: 'user',
       timestamp: serverTimestamp(),
-      userId: userId // Using Firebase userId for chat history
-      // piUsername: piUser ? piUser.username : 'Guest' // Optionally store Pi username
+      userId: userId
     };
 
     try {
       setIsLoading(true);
       const chatCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/messages`);
-      await setDoc(doc(chatCollectionRef), userMessage);
+      await setDoc(doc(chatCollectionRef), userMessage); // Use setDoc with an auto-generated ID
 
       setInput('');
 
       // Call the Gemini API for the AI response
       const chatHistory = [{ role: "user", parts: [{ text: input }] }];
       const payload = { contents: chatHistory };
-
-	const apiKey = process.env.REACT_APP_GEMINI_API_KEY; // This will now get the value from Netlify
-
-
-
-
-
+      const apiKey = ""; // API key is provided by the Canvas runtime
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
       const response = await fetch(apiUrl, {
@@ -201,24 +159,7 @@ function App() {
         userId: userId
       };
 
-      await setDoc(doc(chatCollectionRef), aiMessage);
-
-      // --- Conceptual Pi Payment Integration (if you had premium features) ---
-      /*
-      if (aiResponseText.includes("premium feature unlocked") && piUser) {
-        try {
-          const paymentResult = await piSdk.createPayment({
-            amount: 0.01, // Example small amount in Pi
-            memo: 'AI Agent Premium Access',
-            metadata: { feature: 'premium_ai_response' }
-          });
-          console.log("Pi Payment successful:", paymentResult);
-        } catch (paymentError) {
-          console.error("Pi Payment failed:", paymentError);
-          // Handle payment failure in UI (e.g., show a message to user)
-        }
-      }
-      */
+      await setDoc(doc(chatCollectionRef), aiMessage); // Use setDoc with an auto-generated ID
 
     } catch (error) {
       console.error("Error sending message or getting AI response:", error);
@@ -237,26 +178,19 @@ function App() {
   return (
     <div className="flex flex-col h-screen bg-gray-100 font-inter antialiased">
       <header className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-4 shadow-md rounded-b-lg">
-        <h1 className="text-3xl font-bold text-center">dHeliosAI Companion</h1>
-        <p className="text-sm text-center opacity-80 mt-1">Your smart companion in the Pi ecosystem</p>
+        <h1 className="text-3xl font-bold text-center">AI Chatbot</h1>
+        <p className="text-sm text-center opacity-80 mt-1">Your personal conversational agent</p>
         {userId && (
           <div className="text-xs text-center mt-2 opacity-70">
-            {/* Displaying user ID for debugging/identification in Pi context */}
-            App User ID: {userId}
-            {piUser && ` (Pi User: ${piUser.username})`}
+            User ID: {userId}
           </div>
-        )}
-        {!isAuthReady && (
-            <div className="text-sm text-center mt-2 text-yellow-300">
-                Initializing app...
-            </div>
         )}
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message, index) => (
           <div
-            key={message.id || index}
+            key={message.id || index} // Use message.id if available, fallback to index
             className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
@@ -278,7 +212,7 @@ function App() {
           <input
             type="text"
             className="flex-1 p-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-            placeholder="Ask your dHeliosAI Companion..."
+            placeholder="Type your message..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => {
