@@ -103,7 +103,7 @@ function App() {
     });
 
     return () => unsubscribeSnapshot();
-  }, [isAuthReady, db, userId]);
+  }, [isAuthReady, userId]);
 
   // Scroll to bottom whenever messages update
   useEffect(() => {
