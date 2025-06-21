@@ -5,7 +5,7 @@ import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged }
 import { getFirestore, doc, setDoc, collection, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 
 // Global variables provided by the Canvas environment (these might be passed as props in a real app)
-const appId = typeof _app_id !== 'undefined' ? _app_id : 'default-app-id'; 
+//const appId = typeof _app_id !== 'undefined' ? _app_id : 'default-app-id'; 
 
 
 const firebaseConfig = {
